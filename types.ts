@@ -1,18 +1,23 @@
-
 export enum TicketStatus {
   Open = 'Open',
   InProgress = 'In Progress',
-  Resolved = 'Resolved',
+  Paused = 'Paused',
+  Completed = 'Completed',
+  Canceled = 'Canceled',
   Closed = 'Closed',
 }
 
 export interface Client {
   id: string;
-  name: string;
+  name: string; // Business Name
+  abn: string;
   contactPerson: string;
   email: string;
-  phone: string;
+  address: string;
+  phone: string; // Business Phone
+  mobilePhone: string;
   joinDate: string;
+  details?: string;
 }
 
 export interface Asset {
@@ -22,6 +27,7 @@ export interface Asset {
   type: 'Laptop' | 'Desktop' | 'Server' | 'Printer' | 'Router' | 'Other';
   purchaseDate: string;
   warrantyEndDate: string;
+  notes?: string;
 }
 
 export interface Ticket {

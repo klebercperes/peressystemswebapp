@@ -27,10 +27,13 @@ const StatCard: React.FC<{ title: string; value: number; icon: React.ReactNode }
 
 const TicketStatusBadge: React.FC<{ status: TicketStatus }> = ({ status }) => {
   const baseClasses = "px-2 py-1 text-xs font-semibold rounded-full";
-  const statusClasses = {
+  // FIX: Replaced incorrect TicketStatus.Resolved with TicketStatus.Completed and added other missing statuses.
+  const statusClasses: Record<TicketStatus, string> = {
     [TicketStatus.Open]: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
     [TicketStatus.InProgress]: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    [TicketStatus.Resolved]: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    [TicketStatus.Paused]: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+    [TicketStatus.Completed]: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+    [TicketStatus.Canceled]: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
     [TicketStatus.Closed]: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;

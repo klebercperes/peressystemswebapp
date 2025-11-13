@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -15,23 +14,92 @@ const App: React.FC = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
 
-  useEffect(() => {
-    // Load initial data from our localStorage database
+  const refreshData = () => {
     setClients(db.getClients());
     setTickets(db.getTickets());
     setAssets(db.getAssets());
+  };
+
+  useEffect(() => {
+    refreshData();
   }, []);
+
+  // --- Client Handlers ---
+  const handleAddClient = (clientData: Omit<Client, 'id' | 'joinDate'>) => {
+    db.addClient(clientData);
+    refreshData();
+  };
+  const handleUpdateClient = (clientData: Client) => {
+    db.updateClient(clientData);
+    refreshData();
+  };
+  const handleDeleteClient = (clientId: string) => {
+    db.deleteClient(clientId);
+    refreshData();
+  };
+
+  // --- Ticket Handlers ---
+  const handleAddTicket = (ticketData: Omit<Ticket, 'id' | 'createdDate'>) => {
+    db.addTicket(ticketData);
+    refreshData();
+  };
+  const handleUpdateTicket = (ticketData: Ticket) => {
+    db.updateTicket(ticketData);
+    refreshData();
+  };
+  const handleDeleteTicket = (ticketId: string) => {
+    db.deleteTicket(ticketId);
+    refreshData();
+  };
+
+  // --- Asset Handlers ---
+  const handleAddAsset = (assetData: Omit<Asset, 'id'>) => {
+    db.addAsset(assetData);
+    refreshData();
+  };
+  const handleUpdateAsset = (assetData: Asset) => {
+    db.updateAsset(assetData);
+    refreshData();
+  };
+  const handleDeleteAsset = (assetId: string) => {
+    db.deleteAsset(assetId);
+    refreshData();
+  };
+
 
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
         return <Dashboard clients={clients} tickets={tickets} assets={assets} />;
       case 'clients':
-        return <ClientManager clients={clients} />;
+        return (
+          <ClientManager 
+            clients={clients} 
+            onAddClient={handleAddClient}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+          />
+        );
       case 'tickets':
-        return <TicketManager tickets={tickets} clients={clients} />;
+        return (
+            <TicketManager 
+                tickets={tickets} 
+                clients={clients}
+                onAddTicket={handleAddTicket}
+                onUpdateTicket={handleUpdateTicket}
+                onDeleteTicket={handleDeleteTicket}
+            />
+        );
       case 'assets':
-        return <AssetManager assets={assets} clients={clients} />;
+        return (
+            <AssetManager 
+                assets={assets} 
+                clients={clients} 
+                onAddAsset={handleAddAsset}
+                onUpdateAsset={handleUpdateAsset}
+                onDeleteAsset={handleDeleteAsset}
+            />
+        );
       case 'ai-assistant':
         return <AiAssistant />;
       default:
