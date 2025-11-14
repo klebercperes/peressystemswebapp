@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: msp_postgres
+    environment:
+      POSTGRES_USER: msp_user
+      POSTGRES_PASSWORD: msp_password
+      POSTGRES_DB: msp_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U msp_user -d msp_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: msp_backend
+    environment:
+      DATABASE_URL: postgresql://msp_user:msp_password@postgres:5432/msp_db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: msp_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://10.0.1.122:8000
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+

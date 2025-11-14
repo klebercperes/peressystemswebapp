@@ -1,18 +1,34 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = process.env.API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
 
-if (!API_KEY) {
-  // In a real app, you might want to handle this more gracefully.
-  // For this example, we'll throw an error if the API key is not set.
-  console.warn("API_KEY environment variable not set. AI Assistant will not work.");
-}
+// Lazy initialization - only create AI instance when needed and when API key exists
+let aiInstance: GoogleGenAI | null = null;
 
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+const getAIInstance = (): GoogleGenAI | null => {
+  if (!API_KEY) {
+    return null;
+  }
+  if (!aiInstance) {
+    try {
+      aiInstance = new GoogleGenAI({ apiKey: API_KEY });
+    } catch (error) {
+      console.error("Failed to initialize GoogleGenAI:", error);
+      return null;
+    }
+  }
+  return aiInstance;
+};
 
 export const getTroubleshootingSteps = async (problemDescription: string): Promise<string> => {
   if (!API_KEY) {
+    console.warn("API_KEY environment variable not set. AI Assistant will not work.");
+    return Promise.resolve("AI Assistant is not available. Please configure the API Key in your environment variables.");
+  }
+
+  const ai = getAIInstance();
+  if (!ai) {
     return Promise.resolve("AI Assistant is not available. Please configure the API Key.");
   }
 
