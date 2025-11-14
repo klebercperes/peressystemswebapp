@@ -1,0 +1,49 @@
+# Docker Compose configuration with SSL/HTTPS support
+# This extends the base docker-compose.yml for SSL setup
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.ssl.yml up -d
+#
+# Prerequisites:
+#   1. SSL certificates in ./ssl/ directory
+#   2. Or use certbot to generate Let's Encrypt certificates
+#   3. Update nginx-ssl.conf with your domain name
+
+version: '3.8'
+
+services:
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: msp_nginx_proxy
+    ports:
+      - "80:80"   # HTTP - redirects to HTTPS
+      - "443:443" # HTTPS
+    volumes:
+      - ./nginx-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # SSL certificates
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - default
+
+  frontend:
+    # Frontend runs on internal port 80, nginx proxies to it
+    ports: []  # Remove external port mapping - nginx will proxy
+    expose:
+      - "80"
+
+  backend:
+    # Backend runs on internal port 8000, nginx proxies to it
+    ports: []  # Remove external port mapping - nginx will proxy
+    expose:
+      - "8000"
+    environment:
+      # Add Sentry configuration
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      RELEASE_VERSION: ${RELEASE_VERSION:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
+

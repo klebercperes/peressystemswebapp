@@ -18,6 +18,19 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
-      }
+      },
+      build: {
+        outDir: 'dist',
+        assetsDir: 'assets',
+        sourcemap: false, // Disable sourcemaps in production for smaller builds
+        minify: 'esbuild', // Use esbuild (faster, no extra dependencies)
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              vendor: ['react', 'react-dom'],
+            },
+          },
+        },
+      },
     };
 });

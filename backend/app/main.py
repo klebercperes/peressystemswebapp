@@ -1,37 +1,89 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List
 import uuid
 from datetime import date, datetime
+import os
 
 from app.database import get_db, engine, Base
 from app import models, schemas
+from app.auth import get_current_active_user
+from app.auth_routes import router as auth_router
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from app.logging_config import setup_logging, get_logger
+from app.middleware import RequestIDMiddleware, LoggingMiddleware
+from app.security_headers import SecurityHeadersMiddleware
+from app.sentry_config import init_sentry
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Initialize Sentry error tracking (if configured)
+sentry_enabled = init_sentry()
+
+# Setup structured logging
+setup_logging()
+logger = get_logger(__name__)
+
+if sentry_enabled:
+    logger.info("Sentry error tracking enabled")
+else:
+    logger.info("Sentry not configured (set SENTRY_DSN to enable)")
+
+# Database tables are created via Alembic migrations
+# Run: alembic upgrade head
+# DO NOT use Base.metadata.create_all() in production
 
 app = FastAPI(title="Peres Systems MSP API", version="1.0.0")
 
-# CORS middleware
+# Add middleware (order matters - security headers last)
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Initialize rate limiter
+# Using IP address as the key for rate limiting
+# In production with multiple servers, consider using Redis for distributed rate limiting
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS middleware - configure from environment variables
+# Default origins (no hardcoded IPs - use environment variables)
+DEFAULT_CORS_ORIGINS = "http://localhost:5173,http://localhost:3000,http://frontend:5173"
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://10.0.1.122:5173",
-        "http://10.0.1.122:3000",
-        "http://frontend:5173",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    expose_headers=["Content-Type"],
 )
+
+# Get rate limits from environment variables
+API_RATE_LIMIT = os.getenv("API_RATE_LIMIT", "100/minute")  # General API rate limit
+
+# Include auth router (after limiter is set up)
+app.include_router(auth_router)
+
+# Share limiter with auth router - set app state after router is included
+from app.auth_routes import limiter as auth_limiter
+auth_limiter.app = app  # Share the app state for rate limiting
 
 # ========== CLIENT ENDPOINTS ==========
 
 @app.get("/api/clients", response_model=List[schemas.ClientResponse])
-def get_clients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_clients(
+    request: Request,
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get all clients"""
     clients = db.query(models.Client).offset(skip).limit(limit).all()
     return [
@@ -51,7 +103,13 @@ def get_clients(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     ]
 
 @app.get("/api/clients/{client_id}", response_model=schemas.ClientResponse)
-def get_client(client_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_client(
+    request: Request,
+    client_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get a single client by ID"""
     client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not client:
@@ -70,7 +128,13 @@ def get_client(client_id: str, db: Session = Depends(get_db)):
     }
 
 @app.post("/api/clients", response_model=schemas.ClientResponse, status_code=201)
-def create_client(client: schemas.ClientCreate, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def create_client(
+    request: Request,
+    client: schemas.ClientCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Create a new client"""
     client_id = f"cli-{uuid.uuid4().hex[:8]}"
     db_client = models.Client(
@@ -103,7 +167,14 @@ def create_client(client: schemas.ClientCreate, db: Session = Depends(get_db)):
     }
 
 @app.put("/api/clients/{client_id}", response_model=schemas.ClientResponse)
-def update_client(client_id: str, client_update: schemas.ClientUpdate, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def update_client(
+    request: Request,
+    client_id: str, 
+    client_update: schemas.ClientUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Update a client"""
     db_client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not db_client:
@@ -135,7 +206,13 @@ def update_client(client_id: str, client_update: schemas.ClientUpdate, db: Sessi
     }
 
 @app.delete("/api/clients/{client_id}", status_code=204)
-def delete_client(client_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def delete_client(
+    request: Request,
+    client_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Delete a client"""
     db_client = db.query(models.Client).filter(models.Client.id == client_id).first()
     if not db_client:
@@ -148,7 +225,14 @@ def delete_client(client_id: str, db: Session = Depends(get_db)):
 # ========== TICKET ENDPOINTS ==========
 
 @app.get("/api/tickets", response_model=List[schemas.TicketResponse])
-def get_tickets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_tickets(
+    request: Request,
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get all tickets"""
     tickets = db.query(models.Ticket).offset(skip).limit(limit).all()
     return [
@@ -165,7 +249,13 @@ def get_tickets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     ]
 
 @app.get("/api/tickets/{ticket_id}", response_model=schemas.TicketResponse)
-def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_ticket(
+    request: Request,
+    ticket_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get a single ticket by ID"""
     ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
     if not ticket:
@@ -181,7 +271,13 @@ def get_ticket(ticket_id: str, db: Session = Depends(get_db)):
     }
 
 @app.get("/api/clients/{client_id}/tickets", response_model=List[schemas.TicketResponse])
-def get_tickets_by_client(client_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_tickets_by_client(
+    request: Request,
+    client_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get all tickets for a specific client"""
     tickets = db.query(models.Ticket).filter(models.Ticket.client_id == client_id).all()
     return [
@@ -198,7 +294,13 @@ def get_tickets_by_client(client_id: str, db: Session = Depends(get_db)):
     ]
 
 @app.post("/api/tickets", response_model=schemas.TicketResponse, status_code=201)
-def create_ticket(ticket: schemas.TicketCreate, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def create_ticket(
+    request: Request,
+    ticket: schemas.TicketCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Create a new ticket"""
     # Verify client exists
     client = db.query(models.Client).filter(models.Client.id == ticket.clientId).first()
@@ -228,7 +330,14 @@ def create_ticket(ticket: schemas.TicketCreate, db: Session = Depends(get_db)):
     }
 
 @app.put("/api/tickets/{ticket_id}", response_model=schemas.TicketResponse)
-def update_ticket(ticket_id: str, ticket_update: schemas.TicketUpdate, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def update_ticket(
+    request: Request,
+    ticket_id: str, 
+    ticket_update: schemas.TicketUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Update a ticket"""
     db_ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
     if not db_ticket:
@@ -269,7 +378,13 @@ def update_ticket(ticket_id: str, ticket_update: schemas.TicketUpdate, db: Sessi
     }
 
 @app.delete("/api/tickets/{ticket_id}", status_code=204)
-def delete_ticket(ticket_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def delete_ticket(
+    request: Request,
+    ticket_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Delete a ticket"""
     db_ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
     if not db_ticket:
@@ -282,7 +397,14 @@ def delete_ticket(ticket_id: str, db: Session = Depends(get_db)):
 # ========== ASSET ENDPOINTS ==========
 
 @app.get("/api/assets", response_model=List[schemas.AssetResponse])
-def get_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_assets(
+    request: Request,
+    skip: int = 0, 
+    limit: int = 100, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get all assets"""
     assets = db.query(models.Asset).offset(skip).limit(limit).all()
     return [
@@ -299,7 +421,13 @@ def get_assets(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     ]
 
 @app.get("/api/assets/{asset_id}", response_model=schemas.AssetResponse)
-def get_asset(asset_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_asset(
+    request: Request,
+    asset_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get a single asset by ID"""
     asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if not asset:
@@ -315,7 +443,13 @@ def get_asset(asset_id: str, db: Session = Depends(get_db)):
     }
 
 @app.get("/api/clients/{client_id}/assets", response_model=List[schemas.AssetResponse])
-def get_assets_by_client(client_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def get_assets_by_client(
+    request: Request,
+    client_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get all assets for a specific client"""
     assets = db.query(models.Asset).filter(models.Asset.client_id == client_id).all()
     return [
@@ -332,7 +466,13 @@ def get_assets_by_client(client_id: str, db: Session = Depends(get_db)):
     ]
 
 @app.post("/api/assets", response_model=schemas.AssetResponse, status_code=201)
-def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def create_asset(
+    request: Request,
+    asset: schemas.AssetCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Create a new asset"""
     # Verify client exists
     client = db.query(models.Client).filter(models.Client.id == asset.clientId).first()
@@ -363,7 +503,14 @@ def create_asset(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     }
 
 @app.put("/api/assets/{asset_id}", response_model=schemas.AssetResponse)
-def update_asset(asset_id: str, asset_update: schemas.AssetUpdate, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def update_asset(
+    request: Request,
+    asset_id: str, 
+    asset_update: schemas.AssetUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Update an asset"""
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if not db_asset:
@@ -401,7 +548,13 @@ def update_asset(asset_id: str, asset_update: schemas.AssetUpdate, db: Session =
     }
 
 @app.delete("/api/assets/{asset_id}", status_code=204)
-def delete_asset(asset_id: str, db: Session = Depends(get_db)):
+@limiter.limit(API_RATE_LIMIT)
+def delete_asset(
+    request: Request,
+    asset_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Delete an asset"""
     db_asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
     if not db_asset:
@@ -413,8 +566,26 @@ def delete_asset(asset_id: str, db: Session = Depends(get_db)):
 
 @app.get("/")
 def root():
-    """Health check endpoint"""
+    """Health check endpoint - no rate limit for monitoring"""
+    logger.info("Root endpoint accessed", extra={"endpoint": "/"})
     return {"message": "Peres Systems MSP API", "status": "running"}
+
+@app.get("/health")
+def health_check(db: Session = Depends(get_db)):
+    """Enhanced health check endpoint with database connectivity test"""
+    try:
+        # Test database connection
+        db.execute(text("SELECT 1"))
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy",
+        "service": "Peres Systems MSP API",
+        "database": db_status,
+        "timestamp": datetime.now().isoformat(),
+    }
 
 @app.get("/favicon.ico")
 def favicon():

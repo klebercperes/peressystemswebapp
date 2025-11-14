@@ -5,10 +5,14 @@ import { ClientManager } from './components/ClientManager';
 import { TicketManager } from './components/TicketManager';
 import { AssetManager } from './components/AssetManager';
 import { AiAssistant } from './components/AiAssistant';
+import { Login } from './components/Login';
 import { api } from './services/api';
+import { authService } from './services/auth';
 import { View, Client, Ticket, Asset } from './types';
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [checkingAuth, setCheckingAuth] = useState<boolean>(true);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [clients, setClients] = useState<Client[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -41,10 +45,56 @@ const App: React.FC = () => {
     }
   };
 
+  // Check authentication on mount
   useEffect(() => {
-    console.log('App component mounted, starting data refresh...');
-    refreshData();
+    const checkAuth = async () => {
+      if (authService.isAuthenticated()) {
+        try {
+          // Verify token is still valid
+          await authService.fetchCurrentUser();
+          setIsAuthenticated(true);
+          refreshData();
+        } catch (err) {
+          // Token invalid, clear auth
+          authService.logout();
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+      }
+      setCheckingAuth(false);
+    };
+    checkAuth();
   }, []);
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    refreshData();
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setIsAuthenticated(false);
+    setClients([]);
+    setTickets([]);
+    setAssets([]);
+  };
+
+  // Show login screen if not authenticated
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
 
   // --- Client Handlers ---
   const handleAddClient = async (clientData: Omit<Client, 'id' | 'joinDate'>) => {
@@ -205,7 +255,7 @@ const App: React.FC = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400 text-lg">Loading application data...</p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Connecting to API at {import.meta.env.VITE_API_URL || 'http://10.0.1.122:8000'}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">Connecting to API at {import.meta.env.VITE_API_URL || 'http://localhost:8000'}</p>
           <p className="text-xs text-gray-400 dark:text-gray-600 mt-4">If this takes too long, check the browser console (F12)</p>
         </div>
       </div>
@@ -214,7 +264,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-      <Sidebar currentView={currentView} onNavigate={setCurrentView} />
+      <Sidebar currentView={currentView} onNavigate={setCurrentView} onLogout={handleLogout} />
       <main className="flex-1 p-6 md:p-10 overflow-y-auto">
         {error && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg dark:bg-red-900 dark:border-red-700 dark:text-red-200">

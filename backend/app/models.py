@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, String, Date, DateTime, ForeignKey, Enum as SQLEnum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -65,4 +65,16 @@ class Ticket(Base):
     
     # Relationships
     client = relationship("Client", back_populates="tickets")
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(String, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

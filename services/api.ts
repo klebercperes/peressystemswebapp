@@ -1,6 +1,9 @@
 import { Client, Asset, Ticket, TicketStatus } from '../types';
+import { authService } from './auth';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://10.0.1.122:8000';
+// API URL from environment variable (no hardcoded IPs)
+// Default to localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Helper function for API calls
 async function apiCall<T>(
@@ -8,9 +11,13 @@ async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<T> {
   try {
+    // Get auth token and add to headers
+    const authHeaders = authService.getAuthHeader();
+    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
       ...options,
@@ -23,6 +30,11 @@ async function apiCall<T>(
     });
 
     if (!response.ok) {
+      // Handle 401 Unauthorized - token expired or invalid
+      if (response.status === 401) {
+        authService.logout();
+        throw new Error('Session expired. Please login again.');
+      }
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }

@@ -1,3 +1,7 @@
+# Docker Compose configuration for HTTPS with domain (peres.systems)
+# Uses Let's Encrypt certificates
+# Usage: docker-compose -f docker-compose.https-domain.yml up -d
+
 version: '3.8'
 
 services:
@@ -33,28 +37,46 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-43200}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-    ports:
-      - "8000:8000"
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://peres.systems,https://www.peres.systems,http://localhost:5173,http://localhost:3000,http://frontend:5173}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      RELEASE_VERSION: ${RELEASE_VERSION:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
+    expose:
+      - "8000"
     volumes:
       - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
-    # Gunicorn command is now in Dockerfile, but can be overridden here if needed
-    # command: gunicorn app.main:app -c gunicorn_config.py
 
   frontend:
     build:
       context: .
       dockerfile: Dockerfile.frontend.prod
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_API_URL: ${VITE_API_URL:-https://peres.systems}
         VITE_GEMINI_API_KEY: ${VITE_GEMINI_API_KEY:-}
     container_name: msp_frontend
-    ports:
-      - "80:80"
+    expose:
+      - "80"
     depends_on:
       - backend
+
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: msp_nginx_proxy
+    ports:
+      - "80:80"   # HTTP - redirects to HTTPS
+      - "443:443" # HTTPS
+    volumes:
+      - ./nginx-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
 
 volumes:
   postgres_data:

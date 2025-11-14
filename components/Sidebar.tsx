@@ -11,6 +11,7 @@ import { SparklesIcon } from './icons/SparklesIcon';
 interface SidebarProps {
   currentView: View;
   onNavigate: (view: View) => void;
+  onLogout: () => void;
 }
 
 const NavItem: React.FC<{
@@ -36,7 +37,7 @@ const NavItem: React.FC<{
 };
 
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate, onLogout }) => {
   return (
     <aside className="w-64" aria-label="Sidebar">
       <div className="overflow-y-auto py-4 px-3 h-full bg-gray-800 rounded-r-lg">
@@ -79,6 +80,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onNavigate }) => 
                 isActive={currentView === 'ai-assistant'}
                 onClick={() => onNavigate('ai-assistant')}
             />
+        </div>
+        <div className="pt-4 mt-4 space-y-2 border-t border-gray-700">
+          <li>
+            <button
+              onClick={onLogout}
+              className="flex items-center p-2 text-base font-normal rounded-lg w-full text-left text-gray-400 hover:text-white hover:bg-gray-700 transition duration-75"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="ml-3">Logout</span>
+            </button>
+          </li>
         </div>
       </div>
     </aside>

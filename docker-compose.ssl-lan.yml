@@ -1,0 +1,47 @@
+# Docker Compose configuration with SSL/HTTPS for LAN access
+# Uses self-signed certificates for testing on local network
+#
+# Usage:
+#   1. Generate self-signed certificates: ./scripts/generate-self-signed-cert.sh
+#   2. Start: docker-compose -f docker-compose.yml -f docker-compose.ssl-lan.yml up -d
+#
+# Note: Browsers will show security warnings for self-signed certificates.
+# This is normal and safe for LAN testing.
+
+version: '3.8'
+
+services:
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: msp_nginx_proxy
+    ports:
+      - "80:80"   # HTTP - redirects to HTTPS
+      - "443:443" # HTTPS
+    volumes:
+      - ./nginx-ssl-lan.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro  # SSL certificates
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - default
+
+  frontend:
+    # Frontend runs on internal port 80, nginx proxies to it
+    # Remove external port mapping - nginx-proxy will handle port 80
+    ports: []
+
+  backend:
+    # Backend runs on internal port 8000, nginx proxies to it
+    ports: []  # Remove external port mapping - nginx will proxy
+    expose:
+      - "8000"
+    environment:
+      # Add Sentry configuration
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      RELEASE_VERSION: ${RELEASE_VERSION:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
+
