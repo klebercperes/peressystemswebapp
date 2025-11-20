@@ -19,36 +19,38 @@ See `LAN_ACCESS.md` for detailed guide, troubleshooting, and mobile device acces
 
 ---
 
-## 🌐 Application URLs (Localhost)
+## 🌐 Application URLs
 
-### Frontend (Production Build)
-- **URL**: http://localhost:80
-- **Status**: Production build with Nginx
-- **Features**: Optimized static files, security headers, caching
+### Local Development
+- **Frontend Dev Server**: http://10.0.1.122:5173 (when running `npm run dev`)
+- **Backend API**: http://10.0.1.122:8000
+- **API Docs**: http://10.0.1.122:8000/docs
+- **Health Check**: http://10.0.1.122:8000/health
 
-### Backend API
-- **Base URL**: http://localhost:8000
-- **Status**: Gunicorn with 4 workers, structured logging enabled
-- **Features**: JWT authentication, rate limiting, request tracking
+### Production Build (Docker)
+- **Frontend**: http://10.0.1.122:80 (or https://peres.systems)
+- **Backend API**: http://10.0.1.122:8000
+- **API Docs**: http://10.0.1.122:8000/docs
+- **Status**: Production build with Nginx, optimized static files, security headers, caching
 
 ### API Documentation (Swagger UI)
-- **URL**: http://localhost:8000/docs
+- **URL**: http://10.0.1.122:8000/docs
 - **Interactive**: Yes - Test endpoints directly from browser
 - **Authentication**: Click "Authorize" button to add JWT token
 
 ### Alternative API Docs (ReDoc)
-- **URL**: http://localhost:8000/redoc
+- **URL**: http://10.0.1.122:8000/redoc
 - **Format**: Alternative documentation view
 
 ## 🏥 Health & Status Endpoints
 
 ### Root Endpoint
-- **URL**: http://localhost:8000/
+- **URL**: http://10.0.1.122:8000/
 - **Method**: GET
 - **Response**: `{"message": "Peres Systems MSP API", "status": "running"}`
 
 ### Health Check (Enhanced)
-- **URL**: http://localhost:8000/health
+- **URL**: http://10.0.1.122:8000/health
 - **Method**: GET
 - **Response**: Includes database connectivity status
 - **Example**:
@@ -64,7 +66,7 @@ See `LAN_ACCESS.md` for detailed guide, troubleshooting, and mobile device acces
 ## 🔐 Authentication Endpoints
 
 ### Register New User
-- **URL**: http://localhost:8000/api/auth/register
+- **URL**: http://10.0.1.122:8000/api/auth/register
 - **Method**: POST
 - **Rate Limit**: 3 requests/hour
 - **Body**:
@@ -78,7 +80,7 @@ See `LAN_ACCESS.md` for detailed guide, troubleshooting, and mobile device acces
   ```
 
 ### Login
-- **URL**: http://localhost:8000/api/auth/login
+- **URL**: http://10.0.1.122:8000/api/auth/login
 - **Method**: POST
 - **Rate Limit**: 5 requests/minute
 - **Content-Type**: `application/x-www-form-urlencoded`
@@ -95,7 +97,7 @@ See `LAN_ACCESS.md` for detailed guide, troubleshooting, and mobile device acces
   ```
 
 ### Get Current User
-- **URL**: http://localhost:8000/api/auth/me
+- **URL**: http://10.0.1.122:8000/api/auth/me
 - **Method**: GET
 - **Headers**: `Authorization: Bearer <token>`
 - **Rate Limit**: 5 requests/minute
@@ -103,46 +105,46 @@ See `LAN_ACCESS.md` for detailed guide, troubleshooting, and mobile device acces
 ## 📊 API Endpoints
 
 ### Clients
-- **List**: http://localhost:8000/api/clients
-- **Get One**: http://localhost:8000/api/clients/{client_id}
-- **Create**: http://localhost:8000/api/clients (POST)
-- **Update**: http://localhost:8000/api/clients/{client_id} (PUT)
-- **Delete**: http://localhost:8000/api/clients/{client_id} (DELETE)
+- **List**: http://10.0.1.122:8000/api/clients
+- **Get One**: http://10.0.1.122:8000/api/clients/{client_id}
+- **Create**: http://10.0.1.122:8000/api/clients (POST)
+- **Update**: http://10.0.1.122:8000/api/clients/{client_id} (PUT)
+- **Delete**: http://10.0.1.122:8000/api/clients/{client_id} (DELETE)
 - **Rate Limit**: 100 requests/minute
 
 ### Tickets
-- **List**: http://localhost:8000/api/tickets
-- **Get One**: http://localhost:8000/api/tickets/{ticket_id}
-- **By Client**: http://localhost:8000/api/clients/{client_id}/tickets
-- **Create**: http://localhost:8000/api/tickets (POST)
-- **Update**: http://localhost:8000/api/tickets/{ticket_id} (PUT)
-- **Delete**: http://localhost:8000/api/tickets/{ticket_id} (DELETE)
+- **List**: http://10.0.1.122:8000/api/tickets
+- **Get One**: http://10.0.1.122:8000/api/tickets/{ticket_id}
+- **By Client**: http://10.0.1.122:8000/api/clients/{client_id}/tickets
+- **Create**: http://10.0.1.122:8000/api/tickets (POST)
+- **Update**: http://10.0.1.122:8000/api/tickets/{ticket_id} (PUT)
+- **Delete**: http://10.0.1.122:8000/api/tickets/{ticket_id} (DELETE)
 - **Rate Limit**: 100 requests/minute
 
 ### Assets
-- **List**: http://localhost:8000/api/assets
-- **Get One**: http://localhost:8000/api/assets/{asset_id}
-- **By Client**: http://localhost:8000/api/clients/{client_id}/assets
-- **Create**: http://localhost:8000/api/assets (POST)
-- **Update**: http://localhost:8000/api/assets/{asset_id} (PUT)
-- **Delete**: http://localhost:8000/api/assets/{asset_id} (DELETE)
+- **List**: http://10.0.1.122:8000/api/assets
+- **Get One**: http://10.0.1.122:8000/api/assets/{asset_id}
+- **By Client**: http://10.0.1.122:8000/api/clients/{client_id}/assets
+- **Create**: http://10.0.1.122:8000/api/assets (POST)
+- **Update**: http://10.0.1.122:8000/api/assets/{asset_id} (PUT)
+- **Delete**: http://10.0.1.122:8000/api/assets/{asset_id} (DELETE)
 - **Rate Limit**: 100 requests/minute
 
 ## 🧪 Quick Test Commands
 
 ### Test Health Check
 ```bash
-curl http://localhost:8000/health
+curl http://10.0.1.122:8000/health
 ```
 
 ### Test with Request ID
 ```bash
-curl -H "X-Request-ID: test-123" http://localhost:8000/health
+curl -H "X-Request-ID: test-123" http://10.0.1.122:8000/health
 ```
 
 ### Test Login
 ```bash
-curl -X POST http://localhost:8000/api/auth/login \
+curl -X POST http://10.0.1.122:8000/api/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=your_username&password=your_password"
 ```
@@ -151,14 +153,14 @@ curl -X POST http://localhost:8000/api/auth/login \
 ```bash
 # First get token from login, then:
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-  http://localhost:8000/api/clients
+  http://10.0.1.122:8000/api/clients
 ```
 
 ### Test Rate Limiting
 ```bash
 # Make 6 requests quickly (5/minute limit for auth)
 for i in {1..6}; do
-  curl -X POST http://localhost:8000/api/auth/login \
+  curl -X POST http://10.0.1.122:8000/api/auth/login \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "username=test&password=wrong"
   echo ""
@@ -169,10 +171,11 @@ done
 ## 📝 Testing Checklist
 
 ### Basic Functionality
-- [ ] Frontend loads: http://localhost:80
-- [ ] Backend responds: http://localhost:8000/
-- [ ] Health check works: http://localhost:8000/health
-- [ ] API docs accessible: http://localhost:8000/docs
+- [ ] Frontend loads: http://10.0.1.122:80 (or https://peres.systems)
+- [ ] Frontend dev server: http://10.0.1.122:5173 (when running `npm run dev`)
+- [ ] Backend responds: http://10.0.1.122:8000/
+- [ ] Health check works: http://10.0.1.122:8000/health
+- [ ] API docs accessible: http://10.0.1.122:8000/docs
 
 ### Authentication
 - [ ] Register new user
@@ -264,5 +267,8 @@ All logs are in JSON format with:
 
 ---
 
-**Quick Start**: Open http://localhost:80 in your browser to access the application!
+**Quick Start**: 
+- **Production**: Open https://peres.systems in your browser
+- **Local Dev**: Start dev server with `npm run dev` then open http://10.0.1.122:5173
+- **Local Production Build**: Open http://10.0.1.122:80
 

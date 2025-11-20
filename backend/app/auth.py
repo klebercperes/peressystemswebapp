@@ -83,10 +83,17 @@ def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
 
 
 def authenticate_user(db: Session, username: str, password: str) -> Optional[models.User]:
-    """Authenticate a user by username and password"""
+    """Authenticate a user by username or email and password"""
+    # Try username first
     user = get_user_by_username(db, username)
+    # If not found, try email
+    if not user:
+        user = get_user_by_email(db, username)
     if not user:
         return None
+    # Check if user has a password (OAuth and email-only users may not have one)
+    if not user.hashed_password:
+        return None  # User doesn't have a password set, can't authenticate with password
     if not verify_password(password, user.hashed_password):
         return None
     if not user.is_active:
@@ -105,11 +112,14 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     payload = verify_token(token, credentials_exception)
-    username: str = payload.get("sub")
-    if username is None:
+    subject: str = payload.get("sub")
+    if subject is None:
         raise credentials_exception
     
-    user = get_user_by_username(db, username=username)
+    # Try username first, then email (for email-only signups)
+    user = get_user_by_username(db, username=subject)
+    if user is None:
+        user = get_user_by_email(db, email=subject)
     if user is None:
         raise credentials_exception
     if not user.is_active:

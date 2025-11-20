@@ -54,8 +54,16 @@ services:
   frontend:
     build:
       context: .
+      # Change to Dockerfile.frontend.github.prod if using GitHub frontend
+      # Set GITHUB_REPO_URL in .env to use GitHub frontend
       dockerfile: Dockerfile.frontend.prod
       args:
+        # GitHub repository configuration (if using GitHub frontend)
+        # Uncomment and set GITHUB_REPO_URL in .env to use GitHub frontend
+        GITHUB_REPO_URL: ${GITHUB_REPO_URL:-}
+        GITHUB_BRANCH: ${GITHUB_BRANCH:-main}
+        GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+        # Frontend build environment variables
         VITE_API_URL: ${VITE_API_URL:-https://peres.systems}
         VITE_GEMINI_API_KEY: ${VITE_GEMINI_API_KEY:-}
     container_name: msp_frontend

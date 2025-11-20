@@ -19,8 +19,11 @@ DB_PASSWORD="${POSTGRES_PASSWORD:-msp_password}"
 # Create backup directory if it doesn't exist
 mkdir -p "$BACKUP_DIR"
 
+# Set timezone to Brisbane, Australia for timestamps
+export TZ="Australia/Brisbane"
+
 # Generate backup filename with timestamp
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+TIMESTAMP=$(TZ="Australia/Brisbane" date +"%Y%m%d_%H%M%S")
 BACKUP_FILE="$BACKUP_DIR/msp_db_backup_${TIMESTAMP}.sql"
 
 # Log file

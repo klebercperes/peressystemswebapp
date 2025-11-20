@@ -1,0 +1,99 @@
+# Docker Compose configuration for HTTPS with domain (peres.systems)
+# Using GitHub frontend: klebercperes/PeresSystemWebAppNew2
+# Usage: docker-compose -f docker-compose.https-domain.github.yml up -d
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: msp_postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-msp_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-msp_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-msp_user} -d ${POSTGRES_DB:-msp_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: msp_backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY: ${SECRET_KEY}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-43200}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://peres.systems,https://www.peres.systems,https://peres.au,https://www.peres.au,http://localhost:5173,http://localhost:3000,http://frontend:5173}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      RELEASE_VERSION: ${RELEASE_VERSION:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
+      # Email/SMTP Configuration
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-"Peres Systems"}
+      FRONTEND_URL: ${FRONTEND_URL:-https://peres.systems}
+    ports:
+      - "8000:8000"  # Expose backend for local development
+    expose:
+      - "8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend.github.prod
+      args:
+        # GitHub repository configuration
+        GITHUB_REPO_URL: ${GITHUB_REPO_URL:-klebercperes/PeresSystemWebAppNew2}
+        GITHUB_BRANCH: ${GITHUB_BRANCH:-main}
+        GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+        # Frontend build environment variables
+        VITE_API_URL: ${VITE_API_URL:-https://peres.systems}
+        VITE_GEMINI_API_KEY: ${VITE_GEMINI_API_KEY:-}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+    container_name: msp_frontend
+    expose:
+      - "80"
+    depends_on:
+      - backend
+
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: msp_nginx_proxy
+    ports:
+      - "80:80"   # HTTP - redirects to HTTPS
+      - "443:443" # HTTPS
+    volumes:
+      - ./nginx-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+

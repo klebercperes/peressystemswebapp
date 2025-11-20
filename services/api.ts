@@ -35,6 +35,11 @@ async function apiCall<T>(
         authService.logout();
         throw new Error('Session expired. Please login again.');
       }
+      // Handle 403 Forbidden - get detailed error message
+      if (response.status === 403) {
+        const error = await response.json().catch(() => ({ detail: 'Access denied' }));
+        throw new Error(error.detail || 'Access denied. You do not have permission to perform this action.');
+      }
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
@@ -215,6 +220,31 @@ export const api = {
   deleteAsset: async (assetId: string): Promise<void> => {
     await apiCall<void>(`/api/assets/${assetId}`, {
       method: 'DELETE',
+    });
+  },
+
+  // ========== CLIENT USER MANAGEMENT ==========
+  getClientUsers: async (clientId: string): Promise<any[]> => {
+    return await apiCall<any[]>(`/api/clients/${clientId}/users`);
+  },
+
+  linkUserToClient: async (userId: string, clientId: string): Promise<any> => {
+    return await apiCall<any>(`/api/users/${userId}/link-client/${clientId}`, {
+      method: 'PUT',
+    });
+  },
+
+  unlinkUserFromClient: async (userId: string): Promise<any> => {
+    return await apiCall<any>(`/api/users/${userId}/unlink-client`, {
+      method: 'PUT',
+    });
+  },
+
+  // ========== CURRENT USER PROFILE ==========
+  updateCurrentUser: async (userData: { username?: string; email?: string; full_name?: string }): Promise<any> => {
+    return await apiCall<any>(`/api/users/me`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
     });
   },
 };

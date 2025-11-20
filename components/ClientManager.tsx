@@ -1,12 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Client } from '../types';
+import { api } from '../services/api';
+import { User } from '../services/auth';
 
 interface ClientManagerProps {
   clients: Client[];
   onAddClient: (client: Omit<Client, 'id' | 'joinDate'>) => void;
   onUpdateClient: (client: Client) => void;
   onDeleteClient: (clientId: string) => void;
+  isAdmin?: boolean;
 }
 
 type ModalType = 'none' | 'add' | 'edit' | 'view' | 'delete';
@@ -70,22 +73,89 @@ const FormTextarea: React.FC<{
 );
 
 
-export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onUpdateClient, onDeleteClient }) => {
+export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClient, onUpdateClient, onDeleteClient, isAdmin = false }) => {
     const [modal, setModal] = useState<{ type: ModalType; client: Client | null }>({ type: 'none', client: null });
+    const [linkedUsers, setLinkedUsers] = useState<User[]>([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [showLinkUserModal, setShowLinkUserModal] = useState(false);
 
     const initialFormState: Omit<Client, 'id' | 'joinDate'> = {
         name: '', abn: '', contactPerson: '', email: '',
         address: '', phone: '', mobilePhone: '', details: '',
     };
+    // Note: contactPerson is kept in the type for backward compatibility but not used in the UI
     const [formData, setFormData] = useState(initialFormState);
 
     useEffect(() => {
         if (modal.type === 'edit' && modal.client) {
             setFormData(modal.client);
+            // Load linked users when editing a client (for admin)
+            if (isAdmin && modal.client) {
+                loadClientUsers(modal.client.id);
+            }
         } else {
             setFormData(initialFormState);
         }
-    }, [modal]);
+        
+        // Load linked users when viewing a client
+        if (modal.type === 'view' && modal.client) {
+            loadClientUsers(modal.client.id);
+        }
+    }, [modal, isAdmin]);
+
+    const loadClientUsers = async (clientId: string) => {
+        setLoadingUsers(true);
+        try {
+            const users = await api.getClientUsers(clientId);
+            setLinkedUsers(users);
+        } catch (error) {
+            console.error('Error loading client users:', error);
+            setLinkedUsers([]);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    const loadAllUsers = async () => {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/users`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (response.ok) {
+                const users = await response.json();
+                setAllUsers(users);
+            }
+        } catch (error) {
+            console.error('Error loading all users:', error);
+        }
+    };
+
+    const handleLinkUser = async (userId: string) => {
+        if (!modal.client) return;
+        try {
+            await api.linkUserToClient(userId, modal.client.id);
+            await loadClientUsers(modal.client.id);
+            setShowLinkUserModal(false);
+        } catch (error) {
+            console.error('Error linking user:', error);
+            alert('Failed to link user. Please try again.');
+        }
+    };
+
+    const handleUnlinkUser = async (userId: string) => {
+        if (!modal.client) return;
+        try {
+            await api.unlinkUserFromClient(userId);
+            await loadClientUsers(modal.client.id);
+        } catch (error) {
+            console.error('Error unlinking user:', error);
+            alert('Failed to unlink user. Please try again.');
+        }
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -94,7 +164,7 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.contactPerson || !formData.email) {
+        if (!formData.name || !formData.email) {
             return;
         }
         if (modal.type === 'edit' && modal.client) {
@@ -138,10 +208,9 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
-                            <th scope="col" className="px-6 py-3">Company Name</th>
-                            <th scope="col" className="px-6 py-3">Contact Person</th>
+                            <th scope="col" className="px-6 py-3">Client</th>
                             <th scope="col" className="px-6 py-3">Email</th>
-                            <th scope="col" className="px-6 py-3">Phone</th>
+                            <th scope="col" className="px-6 py-3">Business Phone</th>
                             <th scope="col" className="px-6 py-3">Actions</th>
                         </tr>
                     </thead>
@@ -153,9 +222,6 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
                             >
                                 <td onClick={() => openModal('view', client)} className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white cursor-pointer">
                                     {client.name}
-                                </td>
-                                <td onClick={() => openModal('view', client)} className="px-6 py-4 cursor-pointer">
-                                    {client.contactPerson}
                                 </td>
                                 <td onClick={() => openModal('view', client)} className="px-6 py-4 cursor-pointer">
                                     {client.email}
@@ -209,7 +275,6 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <FormInput label="Business Name" name="name" value={formData.name} onChange={handleInputChange} placeholder="e.g. Innovate Corp" required />
                                     <FormInput label="ABN" name="abn" value={formData.abn} onChange={handleInputChange} placeholder="e.g. 53 004 085 616" />
-                                    <FormInput label="Contact Person" name="contactPerson" value={formData.contactPerson} onChange={handleInputChange} placeholder="e.g. Alice Johnson" required />
                                     <FormInput label="Email" name="email" value={formData.email} onChange={handleInputChange} type="email" placeholder="e.g. contact@innovate.com" required />
                                     <div className="md:col-span-2">
                                         <FormInput label="Business Address" name="address" value={formData.address} onChange={handleInputChange} placeholder="e.g. 123 Innovation Dr, Tech City" />
@@ -220,6 +285,49 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
                                         <FormTextarea label="Internal Notes" name="details" value={formData.details || ''} onChange={handleInputChange} placeholder="Add any internal notes about this client..." />
                                     </div>
                                 </div>
+                                
+                                {/* Linked Users/Contacts Section - Only for admins in edit mode */}
+                                {isAdmin && modal.type === 'edit' && modal.client && (
+                                    <div className="mt-6 border-t border-gray-200 dark:border-gray-600 pt-6">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Linked Contacts</h4>
+                                            <button
+                                                onClick={() => {
+                                                    loadAllUsers();
+                                                    setShowLinkUserModal(true);
+                                                }}
+                                                className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                + Link Contact
+                                            </button>
+                                        </div>
+                                        {loadingUsers ? (
+                                            <div className="text-center py-4">
+                                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading contacts...</p>
+                                            </div>
+                                        ) : linkedUsers.length === 0 ? (
+                                            <p className="text-sm text-gray-500 dark:text-gray-400">No contacts linked to this client yet.</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {linkedUsers.map((user) => (
+                                                    <div key={user.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                        <div>
+                                                            <p className="font-medium text-gray-900 dark:text-white">{user.full_name || user.username || user.email}</p>
+                                                            <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleUnlinkUser(user.id)}
+                                                            className="px-3 py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                        >
+                                                            Unlink
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div className="flex items-center justify-end p-6 space-x-2 rounded-b border-t border-gray-200 dark:border-gray-600">
                                 <button type="button" onClick={closeModal} className="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">Cancel</button>
@@ -259,7 +367,6 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
                         <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{modal.client.name}</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                <div><p className="font-semibold text-gray-500 dark:text-gray-400">Contact Person</p><p className="text-gray-900 dark:text-white">{modal.client.contactPerson}</p></div>
                                 <div><p className="font-semibold text-gray-500 dark:text-gray-400">ABN</p><p className="text-gray-900 dark:text-white">{modal.client.abn || 'N/A'}</p></div>
                                 <div><p className="font-semibold text-gray-500 dark:text-gray-400">Email Address</p><a href={`mailto:${modal.client.email}`} className="text-blue-600 dark:text-blue-400 hover:underline">{modal.client.email}</a></div>
                                 <div><p className="font-semibold text-gray-500 dark:text-gray-400">Business Phone</p><p className="text-gray-900 dark:text-white">{modal.client.phone || 'N/A'}</p></div>
@@ -267,6 +374,47 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
                                 <div><p className="font-semibold text-gray-500 dark:text-gray-400">Member Since</p><p className="text-gray-900 dark:text-white">{new Date(modal.client.joinDate).toLocaleDateString()}</p></div>
                                 <div className="md:col-span-2"><p className="font-semibold text-gray-500 dark:text-gray-400">Business Address</p><p className="text-gray-900 dark:text-white">{modal.client.address || 'N/A'}</p></div>
                                 {modal.client.details && <div className="md:col-span-2 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg"><p className="font-semibold text-gray-500 dark:text-gray-400">Internal Notes</p><p className="text-gray-900 dark:text-white whitespace-pre-wrap">{modal.client.details}</p></div>}
+                            </div>
+                            
+                            {/* Linked Users/Contacts Section */}
+                            <div className="mt-6 border-t border-gray-200 dark:border-gray-600 pt-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Linked Contacts</h4>
+                                    <button
+                                        onClick={() => {
+                                            loadAllUsers();
+                                            setShowLinkUserModal(true);
+                                        }}
+                                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        + Link Contact
+                                    </button>
+                                </div>
+                                {loadingUsers ? (
+                                    <div className="text-center py-4">
+                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading contacts...</p>
+                                    </div>
+                                ) : linkedUsers.length === 0 ? (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">No contacts linked to this client yet.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {linkedUsers.map((user) => (
+                                            <div key={user.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                <div>
+                                                    <p className="font-medium text-gray-900 dark:text-white">{user.full_name || user.username || user.email}</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleUnlinkUser(user.id)}
+                                                    className="px-3 py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                                >
+                                                    Unlink
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                          <div className="flex items-center justify-end p-6 space-x-2 rounded-b border-t border-gray-200 dark:border-gray-600">
@@ -303,6 +451,63 @@ export const ClientManager: React.FC<ClientManagerProps> = ({ clients, onAddClie
                 </div>
             </div>
         </div>
+        </>
+    )}
+
+    {/* Link User Modal */}
+    {showLinkUserModal && modal.client && (
+        <>
+            <div 
+                className="fixed inset-0 bg-black bg-opacity-60 z-40 transition-opacity" 
+                aria-hidden="true"
+                onClick={() => setShowLinkUserModal(false)}
+            ></div>
+            <div
+                className="fixed inset-0 z-50 flex justify-center items-center w-full h-full"
+            >
+                <div className="relative p-4 w-full max-w-md h-auto">
+                    <div className="relative bg-white rounded-lg shadow dark:bg-gray-800">
+                        <div className="flex justify-between items-center p-4 rounded-t border-b dark:border-gray-600">
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                                Link Contact to {modal.client.name}
+                            </h3>
+                            <button type="button" onClick={() => setShowLinkUserModal(false)} className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white">
+                                <svg aria-hidden="true" className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+                            </button>
+                        </div>
+                        <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            {allUsers.length === 0 ? (
+                                <p className="text-sm text-gray-500 dark:text-gray-400">No users available to link.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {allUsers
+                                        .filter(user => user.client_id !== modal.client?.id && user.role === 'customer')
+                                        .map((user) => (
+                                            <div key={user.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600">
+                                                <div>
+                                                    <p className="font-medium text-gray-900 dark:text-white">{user.full_name || user.username || user.email}</p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleLinkUser(user.id)}
+                                                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                                >
+                                                    Link
+                                                </button>
+                                            </div>
+                                        ))}
+                                    {allUsers.filter(user => user.client_id !== modal.client?.id && user.role === 'customer').length === 0 && (
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">All available contacts are already linked to clients.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-end p-6 space-x-2 rounded-b border-t border-gray-200 dark:border-gray-600">
+                            <button type="button" onClick={() => setShowLinkUserModal(false)} className="text-white bg-gray-600 hover:bg-gray-700 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-gray-500 dark:hover:bg-gray-600">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </>
     )}
 

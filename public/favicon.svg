@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" fill="#1e3a8a"/>
+  <!-- Top circle -->
+  <circle cx="50" cy="30" r="8" fill="white"/>
+  <!-- Bottom left circle -->
+  <circle cx="30" cy="70" r="8" fill="white"/>
+  <!-- Bottom right circle -->
+  <circle cx="70" cy="70" r="8" fill="white"/>
+  <!-- Line from top to bottom left -->
+  <line x1="50" y1="38" x2="30" y2="62" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- Line from top to bottom right -->
+  <line x1="50" y1="38" x2="70" y2="62" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>
+

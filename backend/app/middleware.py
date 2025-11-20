@@ -45,6 +45,18 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         # Start timer
         start_time = time.time()
         
+        # Debug: Log Content-Type for login requests
+        if request.url.path == "/api/auth/login" and request.method == "POST":
+            content_type = request.headers.get("Content-Type", "NOT SET")
+            logger.warning(
+                "🔍 Login request Content-Type",
+                extra={
+                    "request_id": request_id,
+                    "content_type": content_type,
+                    "all_headers": dict(request.headers)
+                }
+            )
+        
         # Log request
         logger.info(
             "Request started",

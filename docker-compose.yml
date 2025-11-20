@@ -33,6 +33,26 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-43200}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # CORS Configuration
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://peres.systems,https://www.peres.systems,https://peres.au,https://www.peres.au,http://localhost:5173,http://localhost:3000,http://frontend:5173}
+      # SMTP Configuration
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Peres Systems}
+      FRONTEND_URL: ${FRONTEND_URL:-https://peres.systems}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      # reCAPTCHA Configuration
+      RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY:-}
+      RECAPTCHA_SITE_KEY: ${RECAPTCHA_SITE_KEY:-}
+      # WhatsApp Configuration
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL}
+      WHATSAPP_API_TOKEN: ${WHATSAPP_API_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      WHATSAPP_APP_ID: ${WHATSAPP_APP_ID}
     ports:
       - "8000:8000"
     volumes:
@@ -50,6 +70,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
         VITE_GEMINI_API_KEY: ${VITE_GEMINI_API_KEY:-}
+        VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-}
     container_name: msp_frontend
     ports:
       - "80:80"

@@ -40,4 +40,16 @@ export interface Ticket {
   resolvedDate?: string;
 }
 
-export type View = 'dashboard' | 'clients' | 'tickets' | 'assets' | 'ai-assistant';
+export interface Service {
+  id: string;
+  title: string;
+  description: string;
+  image_url: string;
+  icon_name?: string;
+  order: string;
+  is_active: boolean;
+  updated_at: string;
+  created_at: string;
+}
+
+export type View = 'dashboard' | 'clients' | 'tickets' | 'assets' | 'ai-assistant' | 'users' | 'services' | 'my-profile' | 'business-settings';

@@ -26,13 +26,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         
         # Content Security Policy (CSP)
         # Adjust based on your needs
+        # Note: CSP connect-src should match your API URL
+        # For development: include localhost and network IP
+        # For production: use your production API URL
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "  # unsafe-eval needed for Vite
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
             "font-src 'self' data:; "
-            "connect-src 'self' http://localhost:8000 https://api.openai.com https://generativelanguage.googleapis.com; "
+            "connect-src 'self' http://localhost:8000 http://10.0.1.122:8000 https://peres.systems https://api.openai.com https://generativelanguage.googleapis.com; "
             "frame-ancestors 'none'; "
             "base-uri 'self'; "
             "form-action 'self'"
