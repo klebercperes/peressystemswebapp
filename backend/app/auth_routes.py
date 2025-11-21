@@ -19,7 +19,7 @@ from app.auth import (
     get_password_hash,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-from app.email_service import send_verification_email, send_password_reset_email
+from app.email_service import send_verification_email, send_password_reset_email, send_new_user_notification
 from datetime import date
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -200,6 +200,21 @@ async def register(request: Request, register_data: schemas.RegisterRequest, db:
     db.commit()
     db.refresh(db_user)
     logger.info("User registered successfully", extra={"request_id": request_id, "user_id": db_user.id, "username": db_user.username, "is_superuser": db_user.is_superuser, "is_approved": db_user.is_approved})
+    
+    # Send admin notification if user needs approval
+    if not db_user.is_approved:
+        try:
+            await send_new_user_notification(
+                user_id=db_user.id,
+                username=db_user.username or db_user.email,
+                email=db_user.email,
+                full_name=db_user.full_name,
+                signup_method="Registration"
+            )
+        except Exception as e:
+            logger.error(f"Failed to send new user notification: {str(e)}", exc_info=True)
+            # Don't fail registration if email fails
+    
     return db_user
 
 
@@ -385,6 +400,19 @@ async def google_oauth(
             db.commit()
             db.refresh(db_user)
             logger.info("Google OAuth user created", extra={"request_id": request_id, "user_id": db_user.id, "email": email})
+            
+            # Send admin notification for new Google OAuth user
+            try:
+                await send_new_user_notification(
+                    user_id=db_user.id,
+                    username=db_user.username or email,
+                    email=email,
+                    full_name=full_name,
+                    signup_method="Google OAuth"
+                )
+            except Exception as e:
+                logger.error(f"Failed to send new user notification: {str(e)}", exc_info=True)
+                # Don't fail OAuth if email fails
         
         if not db_user.is_active:
             raise HTTPException(
@@ -563,6 +591,19 @@ async def verify_email(request: Request, verification_data: schemas.EmailVerific
 @limiter.limit(AUTH_RATE_LIMIT)
 def read_users_me(request: Request, current_user: models.User = Depends(get_current_active_user)):
     """Get current user information"""
+    # Debug: Log role to ensure it's being serialized correctly
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.debug(
+        "Returning current user info",
+        extra={
+            "request_id": request_id,
+            "user_id": current_user.id,
+            "email": current_user.email,
+            "role": str(current_user.role) if current_user.role else None,
+            "role_type": type(current_user.role).__name__,
+            "is_superuser": current_user.is_superuser
+        }
+    )
     return current_user
 
 

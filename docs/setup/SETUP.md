@@ -27,11 +27,11 @@ This guide will help you set up and run the Peres Systems MSP Manager applicatio
    ```
 
 4. **Access the application**:
-   - Frontend: http://10.0.1.122:5173
-   - Backend API: http://10.0.1.122:8000
-   - API Documentation: http://10.0.1.122:8000/docs
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:8000
+   - API Documentation: http://localhost:8000/docs
    
-   **Note**: If accessing from the same machine, you can also use `http://localhost:5173` and `http://localhost:8000`
+   **Note**: If accessing from another machine on the network, replace `localhost` with your server's IP address (e.g., `http://192.168.1.100:5173`).
 
 ## Project Structure
 
@@ -88,10 +88,10 @@ peres-systems-app/
 
 2. **Set environment variable**:
    ```bash
-   export VITE_API_URL=http://10.0.1.122:8000
+   export VITE_API_URL=http://localhost:8000
    ```
    
-   **Note**: If running locally on the same machine, use `http://localhost:8000`
+   **Note**: If accessing from another machine, use your server's IP address (e.g., `http://192.168.1.100:8000`)
 
 3. **Run the development server**:
    ```bash
@@ -142,7 +142,7 @@ The frontend now uses `services/api.ts` instead of `services/database.ts`.
 ### CORS Errors
 - Make sure the frontend URL is in the CORS allowed origins in `backend/app/main.py`
 - Check that `VITE_API_URL` matches your backend URL
-- If accessing via IP (10.0.1.122), ensure it's included in the CORS allowed origins
+- If accessing via IP, ensure it's included in the CORS allowed origins
 
 ### Port Conflicts
 - If port 8000 or 5173 are in use, modify `docker-compose.yml` to use different ports

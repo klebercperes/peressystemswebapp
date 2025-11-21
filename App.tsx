@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
 import { ClientManager } from './components/ClientManager';
@@ -171,36 +171,56 @@ const App: React.FC = () => {
   // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
-      if (authService.isAuthenticated()) {
-        try {
-          // Verify token is still valid and get fresh user data
-          const user = await authService.getCurrentUser();
-          if (user) {
-            setIsAuthenticated(true);
-            setCurrentUser(user);
-            // Don't wait for refreshData - let it load in background
-            // Don't include user refresh here to avoid duplicate calls
-            refreshData(true, true, false).catch(err => {
-              console.error('Error refreshing data:', err);
-              setError('Failed to load data. Please refresh the page.');
+      // Add timeout to ensure we don't hang forever
+      const timeoutId = setTimeout(() => {
+        console.warn('Auth check timeout - proceeding anyway');
+        setIsAuthenticated(false);
+        setLoading(false);
+        setCheckingAuth(false);
+      }, 5000); // 5 second timeout
+
+      try {
+        if (authService.isAuthenticated()) {
+          try {
+            // Verify token is still valid and get fresh user data
+            const user = await authService.getCurrentUser();
+            clearTimeout(timeoutId);
+            if (user) {
+              setIsAuthenticated(true);
+              setCurrentUser(user);
+              // Don't wait for refreshData - let it load in background
+              // Don't include user refresh here to avoid duplicate calls
+              refreshData(true, true, false).catch(err => {
+                console.error('Error refreshing data:', err);
+                setError('Failed to load data. Please refresh the page.');
+                setLoading(false);
+              });
+            } else {
+              authService.logout();
+              setIsAuthenticated(false);
               setLoading(false);
-            });
-          } else {
+            }
+          } catch (err) {
+            clearTimeout(timeoutId);
+            // Token invalid, clear auth
+            console.log('Auth check failed, clearing token:', err);
             authService.logout();
             setIsAuthenticated(false);
             setLoading(false);
           }
-        } catch (err) {
-          // Token invalid, clear auth
-          authService.logout();
+        } else {
+          clearTimeout(timeoutId);
           setIsAuthenticated(false);
-          setLoading(false);
+          setLoading(false); // Set loading to false immediately for unauthenticated users
         }
-      } else {
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.error('Unexpected error during auth check:', err);
         setIsAuthenticated(false);
-        setLoading(false); // Set loading to false immediately for unauthenticated users
+        setLoading(false);
+      } finally {
+        setCheckingAuth(false);
       }
-      setCheckingAuth(false);
     };
     checkAuth();
   }, []);
@@ -467,11 +487,38 @@ const App: React.FC = () => {
         }
         return <BusinessSettings />;
       default:
-        return <Dashboard clients={clients} tickets={tickets} assets={assets} />;
+        return <Dashboard clients={clients} tickets={tickets} assets={assets} currentUser={user} />;
     }
   };
 
+  // Use state for current user (refreshed automatically) or fallback to cached
+  // IMPORTANT: Always fetch fresh user data to ensure role field is present
+  // NOTE: This must be before any early returns to satisfy React hooks rules
+  // Use useMemo to stabilize the user reference to avoid unnecessary re-renders
+  const user = useMemo(() => {
+    return currentUser || authService.getUser();
+  }, [currentUser]);
+  
+  // Debug: Log user object to verify role is present
+  // NOTE: This hook must be called before any conditional returns
+  useEffect(() => {
+    if (user && !user.role && authService.isAuthenticated()) {
+      console.warn('[App] ⚠️ User object missing role field - refreshing...', user);
+      // Force refresh if role is missing
+      authService.fetchCurrentUser(true).then(freshUser => {
+        console.log('[App] ✅ Refreshed user with role:', freshUser);
+        if (freshUser && freshUser.role) {
+          setCurrentUser(freshUser);
+        }
+      }).catch(err => {
+        console.error('[App] ❌ Failed to refresh user:', err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]); // Only depend on role to avoid unnecessary re-runs
+
   // Show loading state only on initial load (and not if we're checking auth)
+  // NOTE: Early return must come AFTER all hooks
   if (checkingAuth) {
     return (
       <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 items-center justify-center">
@@ -485,11 +532,21 @@ const App: React.FC = () => {
 
   // Removed blocking loading screen - let dashboard show even while data is loading
   // Dashboard components will show empty states or loading indicators themselves
-
-  // Use state for current user (refreshed automatically) or fallback to cached
-  const user = currentUser || authService.getUser();
+  
   const isAdmin = !!(user?.is_superuser);
   const isCustomer = user?.role === 'customer';
+  
+  // Debug logging
+  if (user) {
+    console.log('[App] User check:', {
+      hasUser: !!user,
+      hasRole: !!user?.role,
+      role: user?.role,
+      isCustomer: isCustomer,
+      isAdmin: isAdmin,
+      email: user.email
+    });
+  }
 
   const handleHeaderHomeClick = () => {
     // Navigate to home page (public view) but keep user logged in

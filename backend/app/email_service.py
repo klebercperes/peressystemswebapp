@@ -276,3 +276,120 @@ You can reply directly to this email to respond to {name} at {email}
         logger.error(f"Failed to send contact email: {type(e).__name__}: {str(e)}", exc_info=True)
         return False
 
+
+# New user signup notification email template
+NEW_USER_NOTIFICATION_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #10B981; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #10B981; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .info-box { background-color: #EFF6FF; border-left: 4px solid #3B82F6; padding: 15px; margin: 20px 0; }
+        .user-details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 New User Signup</h1>
+        </div>
+        <div class="content">
+            <h2>A new user has signed up and needs approval</h2>
+            
+            <div class="user-details">
+                <h3>User Details:</h3>
+                <p><strong>Name:</strong> {{ full_name or 'Not provided' }}</p>
+                <p><strong>Email:</strong> {{ email }}</p>
+                <p><strong>Username:</strong> {{ username }}</p>
+                <p><strong>Signup Method:</strong> {{ signup_method }}</p>
+                <p><strong>User ID:</strong> {{ user_id }}</p>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>⚠️ Action Required:</strong></p>
+                <p>This user is pending approval and cannot log in until you approve their account.</p>
+            </div>
+            
+            <p>Click the button below to go to the User Management page and approve this user:</p>
+            <a href="{{ admin_url }}" class="button">Approve User</a>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all; color: #10B981;">{{ admin_url }}</p>
+        </div>
+        <div class="footer">
+            <p>© 2024 Peres Systems. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+async def send_new_user_notification(user_id: str, username: str, email: str, full_name: Optional[str] = None, signup_method: str = "Registration") -> bool:
+    """
+    Send email notification to admin when a new user signs up
+    
+    Args:
+        user_id: User ID
+        username: Username
+        email: User email address
+        full_name: User's full name (optional)
+        signup_method: How the user signed up (e.g., "Registration", "Google OAuth")
+        
+    Returns:
+        True if email sent successfully, False otherwise
+    """
+    if not SMTP_USER or not SMTP_PASSWORD:
+        logger.warning("SMTP credentials not configured. Email notification disabled.")
+        logger.info(f"New user signup notification for {email} ({username}) - User ID: {user_id}")
+        return False
+    
+    try:
+        admin_email = os.getenv("ADMIN_EMAIL", SMTP_USER)
+        if not admin_email:
+            logger.warning("ADMIN_EMAIL not configured. Cannot send new user notification.")
+            return False
+        
+        admin_url = f"{FRONTEND_URL}/dashboard?view=users"
+        
+        # Create message
+        message = MIMEMultipart("alternative")
+        message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+        message["To"] = admin_email
+        message["Subject"] = f"🔔 New User Signup: {full_name or username} ({email})"
+        
+        # Render HTML template
+        template = Template(NEW_USER_NOTIFICATION_TEMPLATE)
+        html_content = template.render(
+            user_id=user_id,
+            username=username,
+            email=email,
+            full_name=full_name,
+            signup_method=signup_method,
+            admin_url=admin_url
+        )
+        
+        # Create HTML part
+        html_part = MIMEText(html_content, "html")
+        message.attach(html_part)
+        
+        # Send email using STARTTLS (required for Gmail on port 587)
+        await aiosmtplib.send(
+            message,
+            hostname=SMTP_HOST,
+            port=SMTP_PORT,
+            username=SMTP_USER,
+            password=SMTP_PASSWORD,
+            start_tls=True,
+        )
+        
+        logger.info(f"New user notification email sent to {admin_email} for user {username} ({email})")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to send new user notification email: {type(e).__name__}: {str(e)}", exc_info=True)
+        return False
+

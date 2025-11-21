@@ -4,10 +4,10 @@
 
 ### Local Development URLs
 
-- **Frontend Dev Server**: http://10.0.1.122:5173 (when running `npm run dev`)
-- **Backend API**: http://10.0.1.122:8000
-- **API Docs**: http://10.0.1.122:8000/docs
-- **Health Check**: http://10.0.1.122:8000/health
+- **Frontend Dev Server**: http://localhost:5173 (when running `npm run dev`)
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
 
 ### Production URLs
 
@@ -68,7 +68,7 @@ sudo apt-get install -y nodejs
 3. **Set environment variables** (create `.env.local`):
    ```bash
    cat > .env.local << 'EOF'
-   VITE_API_URL=http://10.0.1.122:8000
+   VITE_API_URL=http://localhost:8000
    VITE_GEMINI_API_KEY=your_key_here
    VITE_GOOGLE_CLIENT_ID=195201008846-r2l59ff7tal07r7ursh2rb8pamob3n15.apps.googleusercontent.com
    EOF
@@ -80,8 +80,8 @@ sudo apt-get install -y nodejs
    ```
 
 5. **Access the application**:
-   - From server: http://10.0.1.122:5173
-   - From network: http://10.0.1.122:5173
+   - From server: http://localhost:5173
+   - From network: http://<your-ip>:5173
    - From localhost: http://localhost:5173
 
 6. When ready, push to GitHub and rebuild Docker image
@@ -113,7 +113,7 @@ npm run dev -- --port 3000
 
 **Connection refused:**
 - Dev server not running - Start with `npm run dev`
-- Check if server started successfully - Look for "Network: http://10.0.1.122:5173" in output
+- Check if server started successfully - Look for "Network: http://..." in output
 
 ---
 
@@ -169,10 +169,10 @@ docker-compose -f docker-compose.https-domain.github.yml up -d frontend
 ### Testing URLs
 
 **Local Development:**
-- Frontend Dev: http://10.0.1.122:5173
-- Backend API: http://10.0.1.122:8000
-- API Docs: http://10.0.1.122:8000/docs
-- Health Check: http://10.0.1.122:8000/health
+- Frontend Dev: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
+- Health Check: http://localhost:8000/health
 
 **Production:**
 - Frontend: https://peres.systems
@@ -183,16 +183,16 @@ docker-compose -f docker-compose.https-domain.github.yml up -d frontend
 
 ```bash
 # Test backend health
-curl http://10.0.1.122:8000/health
+curl http://localhost:8000/health
 
 # Test login
-curl -X POST http://10.0.1.122:8000/api/auth/login \
+curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=kleber&password=SecurePass123"
 
 # Test authenticated request (replace TOKEN)
 curl -H "Authorization: Bearer TOKEN" \
-  http://10.0.1.122:8000/api/clients
+  http://localhost:8000/api/clients
 ```
 
 ### Testing Checklist
