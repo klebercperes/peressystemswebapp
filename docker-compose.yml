@@ -72,6 +72,11 @@ services:
         VITE_GEMINI_API_KEY: ${VITE_GEMINI_API_KEY:-}
         VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-}
     container_name: msp_frontend
+    environment:
+      # nginx-proxy configuration for SSL
+      VIRTUAL_HOST: ${DOMAIN:-peres.systems},www.${DOMAIN:-peres.systems}
+      LETSENCRYPT_HOST: ${DOMAIN:-peres.systems},www.${DOMAIN:-peres.systems}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL:-admin@peres.systems}
     expose:
       - "80"
     depends_on:

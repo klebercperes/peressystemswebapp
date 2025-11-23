@@ -422,6 +422,7 @@ const App: React.FC = () => {
             onUpdateTicket={handleUpdateTicket}
             onDeleteTicket={handleDeleteTicket}
             currentUser={user}
+            onNavigate={setCurrentView}
           />
         );
       case 'clients':
@@ -590,6 +591,7 @@ const App: React.FC = () => {
         <>
           <Header
             isAuthenticated={isAuthenticated}
+            currentUser={user}
             onLoginClick={() => {
               setShowPublicPages(false);
               setShowLogin(false);
@@ -623,6 +625,7 @@ const App: React.FC = () => {
         <>
           <Header
             isAuthenticated={isAuthenticated}
+            currentUser={user}
             onLoginClick={() => {
               setShowPublicPages(false);
               setShowLogin(false);
@@ -654,6 +657,7 @@ const App: React.FC = () => {
       <>
         <Header
           isAuthenticated={isAuthenticated}
+          currentUser={user}
           onLoginClick={() => {
             setShowPublicPages(false);
             setShowLogin(false);
@@ -788,6 +792,7 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       <Header
         isAuthenticated={isAuthenticated}
+        currentUser={user}
         onLoginClick={() => setShowLogin(true)}
         onLogoutClick={handleLogout}
         onHomeClick={handleHeaderHomeClick}

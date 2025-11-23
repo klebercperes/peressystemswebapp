@@ -88,15 +88,18 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) =>
     }
 
     if (window.google && window.google.accounts) {
-      window.google.accounts.id.prompt((notification: any) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Fallback: trigger sign-in directly
-          window.google.accounts.id.renderButton(
-            document.getElementById('google-signin-button') as HTMLElement,
-            { theme: 'outline', size: 'large' }
-          );
-        }
-      });
+      // FedCM-compatible approach: call prompt without callback
+      // Always render button as fallback (FedCM compatible)
+      window.google.accounts.id.prompt();
+      
+      // Ensure button is rendered as fallback
+      const buttonContainer = document.getElementById('google-signin-button');
+      if (buttonContainer && buttonContainer.children.length === 0) {
+        window.google.accounts.id.renderButton(
+          buttonContainer,
+          { theme: 'outline', size: 'large' }
+        );
+      }
     } else {
       setError('Google Sign-In is not available. Please refresh the page.');
     }

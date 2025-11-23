@@ -53,7 +53,10 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onHomeClick, onSer
   // Load reCAPTCHA script
   useEffect(() => {
     if (!RECAPTCHA_SITE_KEY) {
-      console.warn('reCAPTCHA site key not configured. CAPTCHA will be disabled.');
+      // Only log in development mode to reduce console noise
+      if (import.meta.env.DEV) {
+        console.debug('reCAPTCHA site key not configured. CAPTCHA will be disabled.');
+      }
       return;
     }
 
@@ -160,23 +163,18 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onHomeClick, onSer
     }
 
     if (window.google && window.google.accounts) {
-      // Use prompt with FedCM-compatible approach
-      // The callback is optional and won't cause issues when FedCM becomes mandatory
-      window.google.accounts.id.prompt((notification: any) => {
-        // Only handle if notification is provided (FedCM compatible)
-        if (notification) {
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // Fallback: render button manually
-            const buttonContainer = document.getElementById('google-signin-button');
-            if (buttonContainer) {
-              window.google!.accounts.id.renderButton(
-                buttonContainer,
-                { theme: 'outline', size: 'large', width: '100%' }
-              );
-            }
-          }
-        }
-      });
+      // FedCM-compatible approach: call prompt without callback
+      // Always render button as fallback (FedCM compatible)
+      window.google.accounts.id.prompt();
+      
+      // Ensure button is rendered as fallback
+      const buttonContainer = document.getElementById('google-signin-button');
+      if (buttonContainer && buttonContainer.children.length === 0) {
+        window.google.accounts.id.renderButton(
+          buttonContainer,
+          { theme: 'outline', size: 'large', width: '100%' }
+        );
+      }
     } else {
       setError('Google Sign-In is not available. Please refresh the page.');
     }
