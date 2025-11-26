@@ -57,7 +57,7 @@ ssl/
 *.cert
 
 # Docker
-.dockerignore
+
 
 # Alembic
 alembic/versions/*.pyc

@@ -6,7 +6,7 @@ This guide covers the deployment of three production improvements: Unit Tests, L
 
 - Docker and Docker Compose installed
 - Domain name (`peres.systems`) pointing to your server's IP
-- Ports 80, 443, 3000, and 3100 available
+- Ports 80 and 443 available
 
 ## 1. Unit Tests
 
@@ -49,12 +49,16 @@ docker-compose -f docker-compose.https-domain.yml up -d loki promtail grafana
 
 ### Accessing Grafana
 
-1. Navigate to `http://your-server-ip:3000`
-2. Default credentials: `admin` / `admin` (change on first login)
-3. Add Loki as a data source:
+1. **Access via SSH Tunnel** (Recommended for security):
+   ```bash
+   ssh -L 3000:localhost:3000 user@your-server-ip
+   ```
+2. Open `http://localhost:3000` in your local browser
+3. Default credentials: `admin` / `admin` (change on first login)
+4. Add Loki as a data source:
    - URL: `http://loki:3100`
    - Access: Server (default)
-4. Query logs using LogQL:
+5. Query logs using LogQL:
    ```
    {service="backend"}
    {service="frontend"}
@@ -174,3 +178,67 @@ docker exec msp_acme_companion /app/cert_status
 - Keep `LETSENCRYPT_EMAIL` updated for certificate notifications
 - Regularly review logs for security issues
 - SSL certificates auto-renew 30 days before expiration
+- **Secrets Management**:
+  - `.env` is for production secrets.
+  - `.env.dev` is for development.
+  - `.dockerignore` prevents secret leakage in builds.
+  - CORS is restricted to production domains in `.env`.
+
+## Development Mode
+
+To run the project in development mode with hot-reloading and exposed ports:
+
+1. **Setup Environment**:
+   ```bash
+   cp .env.dev .env
+   # Ensure VITE_API_URL=http://localhost:8000 in .env for local dev
+   ```
+
+2. **Start Services**:
+   ```bash
+   docker-compose -f docker-compose.yml up -d
+   ```
+   This exposes:
+   - Postgres: 5432
+   - Backend: 8000
+   - Frontend: 80 (via proxy)
+
+3. **Run Tests**:
+   ```bash
+   cd backend
+   pytest
+   ```
+
+## Feature Implementation Workflow
+
+Follow these steps to add a new feature (e.g., "User Avatar Upload"):
+
+1. **Backend**:
+   - Add endpoint in `app/routers/`.
+   - Update `Dockerfile` if new system dependencies are needed.
+   - Add environment variables to `.env.example`.
+
+2. **Database**:
+   - Create migration: `alembic revision -m "description"`
+   - Apply: `alembic upgrade head`
+
+3. **Frontend**:
+   - Create component in `components/`.
+   - Connect to API using `VITE_API_URL`.
+
+4. **Testing**:
+   - Write backend tests in `tests/`.
+   - Verify in Docker: `docker-compose exec backend pytest`
+
+5. **Documentation**:
+   - Update this guide if deployment steps change.
+
+## Bug Fixing & Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| **CORS Error** | Check `CORS_ORIGINS` in `.env`. Ensure it includes your current domain/IP. |
+| **DB Connection Fail** | Check `DATABASE_URL` and ensure Postgres is healthy (`docker ps`). |
+| **Changes not showing** | Rebuild containers: `docker-compose up -d --build`. |
+| **"Port in use"** | Stop other services or check `docker ps`. |
+
