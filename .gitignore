@@ -68,3 +68,4 @@ alembic/versions/*.pyc
 *.tmp
 *.temp
 .cache/
+remove_secrets.sh
